@@ -428,6 +428,30 @@
   .per-sqm{display:flex;align-items:center;gap:14px;background:var(--deep);color:#fff;border-radius:var(--r);padding:14px 18px;margin:6px 0 14px}
   .per-sqm b{font-family:var(--serif);font-size:34px;font-weight:600;color:var(--gold);line-height:1;white-space:nowrap}
   .per-sqm span{font-size:14px;color:#dfe7e4;line-height:1.4}
+
+  /* ===== Ready-to-reserve box ===== */
+  .reserve-box{border:3px dashed var(--gold,#C9A45C);border-radius:12px;padding:14px;background:#FFFBF2}
+  .reserve-box.on{border-style:solid;background:#FFF6DD;animation:reservePop .5s ease}
+  @keyframes reservePop{0%{transform:scale(.98)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
+  .reserve-toggle{display:flex;gap:12px;align-items:flex-start;cursor:pointer;margin:0;min-height:44px}
+  .reserve-toggle input{width:24px;height:24px;margin-top:2px;flex:none;accent-color:#172D2A}
+  .reserve-toggle b{display:block;font-size:clamp(17px,4.6vw,21px);font-weight:800;letter-spacing:.01em;color:#172D2A;line-height:1.25}
+  .reserve-toggle small{display:block;font-size:14px;font-weight:500;color:#3f4a48;margin-top:4px}
+  .reserve-box .rt-on{display:none}
+  .reserve-box.on .rt-on{display:block}
+  .reserve-box.on .rt-off{display:none}
+  .reserve-box.on .reserve-toggle b{color:#8C6A2A}
+  .reserve-fields{display:grid;gap:14px;margin-top:14px}
+  .reserve-fields[hidden]{display:none}
+  @media(min-width:760px){.reserve-fields{grid-template-columns:1fr 1fr}}
+  .reserve-note{color:#4d5856!important;font-size:12.5px}
+  @media (prefers-reduced-motion: reduce){.reserve-box.on{animation:none}}
+  #form-status.celebrate{display:block;background:linear-gradient(135deg,#172D2A,#21403C);color:#fff;text-align:center;padding:22px 18px;border-radius:8px}
+  #form-status.celebrate .congrats{font-size:clamp(22px,6vw,30px);font-weight:800;color:#C9A45C;line-height:1.2;margin-bottom:6px}
+  #form-status.celebrate .welcome{font-size:18px;font-weight:700;margin-bottom:10px}
+  #form-status.celebrate p{color:#e3ebe8}
+  #form-status.celebrate .small{color:#cfd8d5}
+  #form-status.celebrate .btn{background:#C9A45C;color:#172D2A;font-weight:700}
 </style>
 </head>
 <body>
@@ -997,6 +1021,46 @@
           <option>Other</option>
         </select>
       </div>
+      <!-- Optional "ready to reserve" flag: tells Jonathan which leads to prioritize. No payment details are collected here. -->
+      <div class="full reserve-box">
+        <label class="reserve-toggle" for="ready">
+          <input type="checkbox" id="ready" name="ready_to_reserve">
+          <span><b class="rt-off">🔑 I'M READY TO RESERVE A UNIT</b><b class="rt-on">🎉 ADVANCE CONGRATULATIONS! Welcome to Siena</b><small class="rt-off">Optional. Tick this and I'll prioritize your request and walk you through the reservation steps.</small><small class="rt-on">You're one step closer to your new home at Siena. Answer what you can below and I'll reach out first.</small></span>
+        </label>
+        <div class="reserve-fields" hidden>
+          <div>
+            <label for="reserve_unit">Unit or lot you'd like to reserve (if you have one in mind)</label>
+            <input id="reserve_unit" name="reserve_unit" type="text" placeholder="e.g. the unit or lot number">
+          </div>
+          <div>
+            <label for="reserve_when">When do you want to reserve?</label>
+            <select id="reserve_when" name="reserve_when">
+              <option value="">Select one</option>
+              <option>Today</option>
+              <option>Tomorrow</option>
+              <option>Within 3 days</option>
+            </select>
+          </div>
+          <div>
+            <label for="reserve_payment">How will you pay the reservation fee?</label>
+            <select id="reserve_payment" name="reserve_payment">
+              <option value="">Not sure yet</option>
+              <option>Bank transfer</option>
+              <option>Remittance from abroad</option>
+              <option>Check or cash at the sales office</option>
+            </select>
+          </div>
+          <div>
+            <label for="reserve_docs">Do you have a valid ID ready?</label>
+            <select id="reserve_docs" name="reserve_docs">
+              <option value="">Not sure yet</option>
+              <option>Yes, I have a valid ID</option>
+              <option>I need help with the requirements</option>
+            </select>
+          </div>
+          <p class="small reserve-note full">The reservation fee depends on the unit. I'll confirm it with your official computation. Never send payment until I confirm your unit and send the developer's official payment instructions.</p>
+        </div>
+      </div>
       <div class="full">
         <label for="message">Questions or notes (optional)</label>
         <textarea id="message" name="message" rows="3"></textarea>
@@ -1324,5 +1388,68 @@ document.getElementById("lead-form").addEventListener("submit", async (e) => {
 });
 </script>
 </body>
+<script>
+/* Ready-to-reserve: reveals the optional reservation questions, flags the lead with
+   "READY TO RESERVE" in the message and payload, and shows an advance congratulations panel. */
+(function () {
+  const PROJECT = 'Siena';
+  const cb = document.getElementById("ready");
+  const form = document.getElementById("lead-form");
+  if (!cb || !form) return;
+  const box = cb.closest(".reserve-box"), fields = box.querySelector(".reserve-fields");
+  const btn = document.getElementById("submit-btn");
+  const baseLabel = btn ? btn.textContent : "";
+  const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+  const esc = t => String(t).replace(/[<>&"']/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;","'":"&#39;"}[c]));
+  const sync = () => {
+    fields.hidden = !cb.checked; box.classList.toggle("on", cb.checked);
+    if (btn && !btn.disabled) btn.textContent = cb.checked ? "🎉 Send my reservation request" : baseLabel;
+  };
+  cb.addEventListener("change", sync); sync();
+
+  // Remember the state at submit time (the form may be reset before the status is shown)
+  let atSubmit = null;
+  document.addEventListener("submit", e => {
+    if (e.target !== form) return;
+    atSubmit = cb.checked ? { unit: val("reserve_unit"), when: val("reserve_when"), pay: val("reserve_payment"), docs: val("reserve_docs"), first: (val("name").split(" ")[0] || "") } : null;
+  }, true);
+  const extra = () => atSubmit ? { ready_to_reserve: true, reserve_unit: atSubmit.unit, reserve_when: atSubmit.when, reserve_payment: atSubmit.pay, reserve_docs: atSubmit.docs } : { ready_to_reserve: false };
+
+  // Add the reservation details to the chat message
+  if (typeof inquiryText === "function") {
+    const orig = inquiryText;
+    inquiryText = function (p) {
+      const text = orig(p);
+      if (!atSubmit) return text;
+      const r = atSubmit, lines = text.split("\n");
+      const add = [r.unit ? "Unit to reserve: " + r.unit : "", r.when ? "Reserve: " + r.when : "", r.pay ? "Reservation fee via: " + r.pay : "", r.docs ? "Valid ID: " + r.docs : ""].filter(Boolean);
+      lines.splice(lines.length - 1, 1, ...add, "I'm ready to reserve. Please send me the reservation steps.");
+      return ["🔥 READY TO RESERVE"].concat(lines).join("\n");
+    };
+  }
+  // Add the reservation details to automated deliveries (n8n / Apps Script), when configured
+  ["sendToN8n", "sendToAppsScript"].forEach(name => {
+    if (typeof window[name] !== "function") return;
+    const orig = window[name];
+    window[name] = p => orig(Object.assign(p, extra()));
+  });
+  // Turn the status message into the congratulations panel for ready-to-reserve leads
+  if (typeof showStatus === "function") {
+    const orig = showStatus;
+    showStatus = function (type, html) {
+      if (!atSubmit || type !== "ok" || html === "Thank you!") return orig(type, html);
+      const first = esc(atSubmit.first).toUpperCase();
+      const head = '<div class="congrats">🎉 ADVANCE CONGRATULATIONS' + (first ? ", " + first : "") + '!</div><div class="welcome">Welcome to ' + PROJECT + '</div>';
+      const i = html.indexOf('<div class="direct-send">');
+      const body = i >= 0
+        ? '<p><strong>One last step:</strong> tap a button below to send me your reservation request. I\'ll reply with the reservation steps and the developer\'s official payment instructions.</p>' + html.slice(i)
+        : '<p>I received your reservation request and will message you first with the next steps.</p>';
+      orig("celebrate", head + body);
+      const el = document.getElementById("form-status"); if (el) el.className = "celebrate";
+      if (i < 0) { cb.checked = false; sync(); }
+    };
+  }
+})();
+</script>
 </body>
 </html>
