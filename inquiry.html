@@ -80,9 +80,9 @@
     </div>
 
     <div class="field">
-      <label class="title" for="mobile">Mobile number</label>
-      <input type="tel" id="mobile" name="mobile" placeholder="0917 123 4567" autocomplete="tel" inputmode="tel">
-      <div class="err">Enter a valid PH mobile number, like 0917 123 4567</div>
+      <label class="title" for="mobile">Mobile or WhatsApp number</label>
+      <input type="tel" id="mobile" name="mobile" placeholder="0917 123 4567 or +971 50 123 4567" autocomplete="tel" inputmode="tel">
+      <div class="err">Enter a valid phone number. If you're abroad, include your country code.</div>
     </div>
 
     <div class="field">
@@ -150,7 +150,7 @@
   // Each rule returns true when the field is valid
   const rules = {
     fullName: v => v.trim().length >= 2,
-    mobile:   v => /^(09|\+639)\d{9}$/.test(v.replace(/[\s-]/g, '')),
+    mobile:   v => /^\+?\d{7,15}$/.test(v.replace(/[\s\-().]/g, '')),   // Any PH or overseas number, 7 to 15 digits
     purpose:  v => v !== '',
     payment:  v => v !== '',
     timeline: v => v !== '',
@@ -193,7 +193,7 @@
 
     const data = new URLSearchParams(new FormData(form));
     data.delete('website');
-    data.set('mobile', form.mobile.value.replace(/[\s-]/g, ''));
+    data.set('mobile', form.mobile.value.replace(/[\s\-().]/g, ''));
 
     try {
       // no-cors: Google's redirect blocks reading the reply, but the data still reaches the Sheet
